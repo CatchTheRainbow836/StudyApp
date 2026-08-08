@@ -1,0 +1,23 @@
+name: StudyTester
+options:
+  bundleIdPrefix: com.studytester
+  deploymentTarget:
+    iOS: "16.0"
+targets:
+  StudyTester:
+    type: application
+    platform: iOS
+    sources: [StudyTester]
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
+      GENERATE_INFOPLIST_FILE: YES
+      INFOPLIST_KEY_CFBundleURLTypes:
+        - CFBundleURLName: com.studytester.app
+          CFBundleURLSchemes: [studyapp]
+      INFOPLIST_KEY_LSApplicationQueriesSchemes:
+        - instagram
+        - youtube
+        - tiktok
+        - twitter
+        - xhsdiscover
+        - x
