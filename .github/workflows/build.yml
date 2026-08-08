@@ -13,8 +13,17 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Select Xcode Version
+        run: sudo xcode-select -s /Applications/Xcode_15.4.app
+
       - name: Install XcodeGen
         run: brew install xcodegen
+
+      - name: Ensure Xcode 15 Compatibility in project.yml
+        run: |
+          if ! grep -q "xcodeVersion:" project.yml; then
+            sed -i '' 's/options:/options:\n  xcodeVersion: "15.4"/' project.yml
+          fi
 
       - name: Generate Xcode Project
         run: xcodegen generate
