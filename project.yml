@@ -10,7 +10,7 @@ targets:
     type: application
     platform: iOS
     sources:
-      - path: StudyTester
+      - StudyTester
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
       GENERATE_INFOPLIST_FILE: YES
