@@ -12,7 +12,6 @@ platform: iOS
 sources:
 - StudyTester
 
-```
 settings:
   PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
   GENERATE_INFOPLIST_FILE: YES
@@ -31,4 +30,3 @@ info:
     - twitter
     - xhsdiscover
     - x
-```
