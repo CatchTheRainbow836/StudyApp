@@ -128,17 +128,26 @@ struct StatisticsView: View {
         }
     }
 
-    private var totalAnswered: Int { qManager.attempts.values.reduce(0) { $0 + $1.totalAttempts } }
-    private var totalCorrect: Int { qManager.attempts.values.reduce(0) { $0 + $1.correctAttempts } }
+    private var totalAnswered: Int { 
+        qManager.attempts.values.reduce(0) { $0 + $1.totalAttempts } 
+    }
+    
+    private var totalCorrect: Int { 
+        qManager.attempts.values.reduce(0) { $0 + $1.correctAttempts } 
+    }
 
     private func areaAnswered(_ area: String) -> Int {
         let qIds = Set(qManager.questions.filter { $0.areaOfStudy == area }.map { $0.id })
-        return qManager.attempts.values.filter { qIds.contains($1.questionId) }.reduce(0) { $0 + $1.totalAttempts }
+        return qManager.attempts.values
+            .filter { qIds.contains($0.questionId) }
+            .reduce(0) { $0 + $1.totalAttempts }
     }
 
     private func areaCorrect(_ area: String) -> Int {
         let qIds = Set(qManager.questions.filter { $0.areaOfStudy == area }.map { $0.id })
-        return qManager.attempts.values.filter { qIds.contains($1.questionId) }.reduce(0) { $0 + $1.correctAttempts }
+        return qManager.attempts.values
+            .filter { qIds.contains($0.questionId) }
+            .reduce(0) { $0 + $1.correctAttempts }
     }
 }
 

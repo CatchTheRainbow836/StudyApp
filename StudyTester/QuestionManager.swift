@@ -84,9 +84,8 @@ class QuestionManager: ObservableObject {
         let unanswered = activePool.filter { (attempts[$0.id]?.totalAttempts ?? 0) == 0 }
         if let chosen = unanswered.randomElement() { return chosen }
 
-        let unmastered = activePool.filter {
-            let att = attempts[$0.id]
-            return (att?.totalAttempts ?? 0) > 0 && (att?.correctAttempts ?? 0) == 0
+        let unmastered = activePool.filter { 
+            (attempts[$0.id]?.totalAttempts ?? 0) > 0 && (attempts[$0.id]?.correctAttempts ?? 0) == 0 
         }
         if let chosen = unmastered.randomElement() { return chosen }
 
@@ -99,7 +98,7 @@ class QuestionManager: ObservableObject {
             let totalCorrect = areaQuestions.reduce(0) { $0 + (attempts[$1.id]?.correctAttempts ?? 0) }
 
             let accuracy = totalAttempts > 0 ? Double(totalCorrect) / Double(totalAttempts) : 0.5
-            let inverseAccuracyWeight = 1.0 - accuracy + 0.1 
+            let inverseAccuracyWeight = 1.0 - accuracy + 0.1
             let userBias = settings.areaBiases[area] ?? 1.0
 
             areaWeights[area] = inverseAccuracyWeight * userBias

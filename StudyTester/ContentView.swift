@@ -36,8 +36,8 @@ struct ContentView: View {
                 ManualDashboardView()
             }
         }
-        .onChange(of: returnURL) { newURL in
-            validateDeepLink(newURL)
+        .onChange(of: returnURL) { _ in
+            validateDeepLink(returnURL)
         }
         .onAppear {
             validateDeepLink(returnURL)
