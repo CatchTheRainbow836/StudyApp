@@ -3,10 +3,12 @@ import SwiftUI
 @main
 struct StudyTesterApp: App {
     @State private var returnURL: URL? = nil
+    @StateObject private var qManager = QuestionManager()
 
     var body: some Scene {
         WindowGroup {
             ContentView(returnURL: $returnURL)
+                .environmentObject(qManager)
                 .onOpenURL { url in
                     handleDeepLink(url)
                 }
@@ -18,9 +20,16 @@ struct StudyTesterApp: App {
               let queryItems = components.queryItems else { return }
 
         if let target = queryItems.first(where: { $0.name == "return_url" })?.value,
-           let decodedString = target.removingPercentEncoding,
-           let validURL = URL(string: decodedString) {
-            self.returnURL = validURL
+           let decodedString = target.removingPercentEncoding {
+            
+            if decodedString == "://" || decodedString.isEmpty {
+                self.returnURL = nil
+                return
+            }
+
+            if let validURL = URL(string: decodedString) {
+                self.returnURL = validURL
+            }
         }
     }
 }
