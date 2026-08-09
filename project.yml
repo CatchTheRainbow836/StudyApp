@@ -4,6 +4,8 @@ options:
 bundleIdPrefix: com.studytester
 deploymentTarget:
 iOS: "16.0"
+xcodeVersion: "15.4"
+projectFormat: xcode15_3
 
 targets:
 StudyTester:
@@ -12,6 +14,7 @@ platform: iOS
 sources:
 - StudyTester
 
+```
 settings:
   PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
   GENERATE_INFOPLIST_FILE: YES
@@ -30,3 +33,14 @@ info:
     - twitter
     - xhsdiscover
     - x
+```
+
+schemes:
+StudyTester:
+build:
+targets:
+StudyTester: all
+run:
+config: Debug
+archive:
+config: Release

@@ -1,121 +1,124 @@
 name: Build iOS IPA
 
 on:
-  push:
-    branches: [main, master]
-  workflow_dispatch:
+push:
+branches: [main, master]
+workflow_dispatch:
 
 jobs:
-  build-ipa:
-    runs-on: macos-14
+build-ipa:
+runs-on: macos-14
 
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout Code
+    uses: actions/checkout@v4
 
-      - name: Select Xcode 15.4
-        run: |
-          sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
-          xcodebuild -version
+  - name: Select Xcode 15.4
+    run: |
+      sudo xcode-select -s /Applications/Xcode_15.4.app/Contents/Developer
+      xcodebuild -version
 
-      - name: Install XcodeGen
-        run: |
-          brew install xcodegen
-          xcodegen version
+  - name: Install XcodeGen
+    run: |
+      brew install xcodegen
+      xcodegen version
 
-      - name: Configure XcodeGen for Xcode 15
-        run: |
-          python3 <<'PY'
-          from pathlib import Path
+  - name: Verify Project Configuration
+    run: |
+      if [ ! -f project.yml ]; then
+        echo "ERROR: project.yml was not found."
+        echo "Make sure the XcodeGen specification is named project.yml, not project.yaml."
+        exit 1
+      fi
 
-          path = Path("project.yml")
-          text = path.read_text()
+      echo "----- project.yml -----"
+      cat project.yml
+      echo "----------------------"
 
-          lines = text.splitlines()
+  - name: Generate Xcode Project
+    run: |
+      rm -rf StudyTester.xcodeproj
+      xcodegen generate
 
-          # Remove any existing projectFormat/xcodeVersion entries so that
-          # the workflow has complete control over the generated project.
-          filtered = []
-          for line in lines:
-              stripped = line.strip()
-              if stripped.startswith("projectFormat:"):
-                  continue
-              if stripped.startswith("xcodeVersion:"):
-                  continue
-              filtered.append(line)
+  - name: Verify Generated Project
+    run: |
+      echo "----- Generated project settings -----"
+      grep -E "objectVersion|LastUpgradeCheck" \
+        StudyTester.xcodeproj/project.pbxproj || true
+      echo "--------------------------------------"
 
-          lines = filtered
+      OBJECT_VERSION=$(grep -E "^objectVersion = " \
+        StudyTester.xcodeproj/project.pbxproj \
+        | head -1 \
+        | sed 's/[^0-9]//g')
 
-          # Find an existing top-level "options:" section.
-          options_index = None
-          for i, line in enumerate(lines):
-              if line.strip() == "options:" and not line.startswith(" "):
-                  options_index = i
-                  break
+      echo "Generated objectVersion: $OBJECT_VERSION"
 
-          if options_index is not None:
-              # Insert settings immediately after options:.
-              lines.insert(options_index + 1, '  xcodeVersion: "15.4"')
-              lines.insert(options_index + 2, '  projectFormat: xcode15_3')
-          else:
-              # Create an options section at the top level.
-              lines.insert(0, "options:")
-              lines.insert(1, '  xcodeVersion: "15.4"')
-              lines.insert(2, "  projectFormat: xcode15_3")
+      if [ -z "$OBJECT_VERSION" ]; then
+        echo "ERROR: Could not determine Xcode project format."
+        exit 1
+      fi
 
-          path.write_text("\n".join(lines) + "\n")
-          PY
+      if [ "$OBJECT_VERSION" -ge 77 ]; then
+        echo "ERROR: XcodeGen generated an Xcode 16 project format."
+        echo "Xcode 15.4 cannot open this project."
+        exit 1
+      fi
 
-          echo "----- project.yml -----"
-          cat project.yml
-          echo "----------------------"
+  - name: Verify StudyTester Scheme
+    run: |
+      echo "----- Available schemes -----"
+      xcodebuild \
+        -project StudyTester.xcodeproj \
+        -list
+      echo "-----------------------------"
 
-      - name: Generate Xcode Project
-        run: |
-          rm -rf StudyTester.xcodeproj
-          xcodegen generate
+      if ! xcodebuild \
+        -project StudyTester.xcodeproj \
+        -list \
+        | grep -q "StudyTester"; then
+        echo "ERROR: StudyTester scheme was not generated."
+        exit 1
+      fi
 
-      - name: Verify Generated Project Format
-        run: |
-          echo "----- Generated project settings -----"
-          grep -E "objectVersion|LastUpgradeCheck" StudyTester.xcodeproj/project.pbxproj || true
-          echo "--------------------------------------"
+  - name: Build iOS Application
+    run: |
+      xcodebuild \
+        -project StudyTester.xcodeproj \
+        -scheme StudyTester \
+        -sdk iphoneos \
+        -configuration Release \
+        -derivedDataPath build \
+        CODE_SIGN_IDENTITY="" \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGNING_ALLOWED=NO
 
-          OBJECT_VERSION=$(grep -E "^objectVersion = " StudyTester.xcodeproj/project.pbxproj | head -1 | sed 's/[^0-9]//g')
+  - name: Package Payload to IPA
+    run: |
+      rm -rf Payload StudyTester.ipa
+      mkdir -p Payload
 
-          echo "Generated objectVersion: $OBJECT_VERSION"
+      cp -R \
+        build/Build/Products/Release-iphoneos/StudyTester.app \
+        Payload/
 
-          if [ "$OBJECT_VERSION" -ge 77 ]; then
-            echo "ERROR: XcodeGen generated an Xcode 16 project format."
-            echo "Xcode 15.4 cannot open this project."
-            exit 1
-          fi
+      cd Payload
+      zip -r ../StudyTester.ipa StudyTester.app
+      cd ..
 
-      - name: Build iOS Application
-        run: |
-          xcodebuild \
-            -project StudyTester.xcodeproj \
-            -scheme StudyTester \
-            -sdk iphoneos \
-            -configuration Release \
-            -derivedDataPath build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+  - name: Verify IPA
+    run: |
+      if [ ! -f StudyTester.ipa ]; then
+        echo "ERROR: StudyTester.ipa was not created."
+        exit 1
+      fi
 
-      - name: Package Payload to IPA
-        run: |
-          rm -rf Payload StudyTester.ipa
-          mkdir -p Payload
+      echo "IPA successfully created:"
+      ls -lh StudyTester.ipa
 
-          cp -R \
-            build/Build/Products/Release-iphoneos/StudyTester.app \
-            Payload/
+  - name: Upload IPA Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: StudyTester-IPA
+      path: StudyTester.ipa
 
-          zip -r StudyTester.ipa Payload
-
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: StudyTester-IPA
-          path: StudyTester.ipa
