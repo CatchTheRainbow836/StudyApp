@@ -1,4 +1,5 @@
 name: StudyTester
+
 options:
   bundleIdPrefix: com.studytester
   xcodeVersion: "15.4"
@@ -10,17 +11,20 @@ targets:
     type: application
     platform: iOS
     sources:
-      - StudyTester
+      - path: StudyTester
+
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
-      GENERATE_INFOPLIST_FILE: YES
+
     info:
+      path: StudyTester/Info.plist
       properties:
         CFBundleURLTypes:
           - CFBundleURLName: com.studytester.app
             CFBundleTypeRole: Editor
             CFBundleURLSchemes:
               - studyapp
+
         LSApplicationQueriesSchemes:
           - instagram
           - youtube
