@@ -30,6 +30,11 @@ jobs:
           rm -rf StudyTester.xcodeproj
           xcodegen generate
 
+      - name: Verify Xcode Project Format
+        run: |
+          echo "Generated project format:"
+          grep -E 'objectVersion|compatibilityVersion' StudyTester.xcodeproj/project.pbxproj | head -5
+
       - name: Build iOS Application
         run: |
           xcodebuild \

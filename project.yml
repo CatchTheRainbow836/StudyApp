@@ -3,6 +3,7 @@ name: StudyTester
 options:
   bundleIdPrefix: com.studytester
   xcodeVersion: "15.4"
+  projectFormat: xcode15_3
   deploymentTarget:
     iOS: "16.0"
 
@@ -10,6 +11,7 @@ targets:
   StudyTester:
     type: application
     platform: iOS
+
     sources:
       - path: StudyTester
 
