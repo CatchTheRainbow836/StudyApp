@@ -11,17 +11,15 @@ struct ManualDashboardView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 20) {
-                VStack(spacing: 8) {
-                    Image(systemName: "book.closed.circle.fill")
-                        .font(.system(size: 70))
+            VStack(spacing: 24) {
+                VStack(spacing: 12) {
+                    Image(systemName: "book.pages.fill")
+                        .font(.system(size: 64))
                         .foregroundColor(.blue)
                     Text("StudyTester")
                         .font(.largeTitle.bold())
                 }
-                .padding(.top, 20)
-
-                Spacer()
+                .padding(.top, 24)
 
                 VStack(spacing: 14) {
                     DashboardButton(title: "Answer Questions", icon: "play.circle.fill", color: .blue) {
@@ -37,7 +35,7 @@ struct ManualDashboardView: View {
                         activeSheet = .settings
                     }
                 }
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 20)
 
                 Spacer()
             }
@@ -55,6 +53,7 @@ struct ManualDashboardView: View {
                 }
             }
         }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -124,8 +123,14 @@ struct StatisticsView: View {
                 }
             }
             .navigationTitle("Statistics")
-            .navigationBarItems(trailing: Button("Done") { dismiss() })
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
+        .navigationViewStyle(.stack)
     }
 
     private var totalAnswered: Int { 
@@ -181,8 +186,14 @@ struct ExportDataView: View {
             }
             .padding()
             .navigationTitle("Export Data")
-            .navigationBarItems(trailing: Button("Done") { dismiss() })
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
         }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -225,10 +236,16 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .navigationBarItems(trailing: Button("Save") {
-                qManager.saveSettings()
-                dismiss()
-            })
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Save") {
+                        qManager.saveSettings()
+                        dismiss()
+                    }
+                }
+            }
         }
+        .navigationViewStyle(.stack)
     }
 }

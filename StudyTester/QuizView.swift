@@ -31,9 +31,12 @@ struct QuizView: View {
                 HStack {
                     if !isAutoMode {
                         Button(action: { dismiss() }) {
-                            Image(systemName: "chevron.left")
-                                .font(.title3.bold())
-                                .foregroundColor(.blue)
+                            HStack(spacing: 4) {
+                                Image(systemName: "chevron.left")
+                                Text("Back")
+                            }
+                            .font(.headline)
+                            .foregroundColor(.blue)
                         }
                     }
 
@@ -52,7 +55,9 @@ struct QuizView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                .padding()
+                .padding(.horizontal)
+                .padding(.top, 12)
+                .padding(.bottom, 8)
 
                 if let q = currentQuestion {
                     ScrollView(.vertical, showsIndicators: true) {
@@ -89,7 +94,7 @@ struct QuizView: View {
                                 }
                             }
 
-                            Spacer(minLength: 30)
+                            Spacer(minLength: 20)
                         }
                         .padding(.horizontal)
                     }
@@ -123,10 +128,18 @@ struct QuizView: View {
                     .background(Color(.systemBackground))
                 } else {
                     VStack(spacing: 16) {
-                        Text("No questions available for selected areas.")
+                        Image(systemName: "folder.badge.questionmark")
+                            .font(.system(size: 50))
                             .foregroundColor(.secondary)
-                        Button("Exit") { dismiss() }
+                        Text("No questions available for the selected areas.")
+                            .font(.headline)
+                            .foregroundColor(.secondary)
+                        Button("Exit Practice") { dismiss() }
+                            .buttonStyle(.borderedProminent)
                     }
+                    .padding()
+                    .padding(.top, 40)
+                    Spacer()
                 }
             }
 

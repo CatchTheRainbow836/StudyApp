@@ -23,7 +23,7 @@ class QuestionManager: ObservableObject {
 
         let enumerator = fileManager.enumerator(atPath: resourcePath)
         while let relativePath = enumerator?.nextObject() as? String {
-            if relativePath.hasSuffix(".json") && relativePath.contains("Questions/") {
+            if relativePath.hasSuffix(".json") {
                 let fullPath = (resourcePath as NSString).appendingPathComponent(relativePath)
                 let url = URL(fileURLWithPath: fullPath)
                 let folderName = url.deletingLastPathComponent().lastPathComponent
@@ -68,10 +68,12 @@ class QuestionManager: ObservableObject {
         self.questions = loadedQuestions
         self.availableAreas = Array(detectedAreas).sorted()
 
-        if settings.enabledAreas.isEmpty {
+        if settings.enabledAreas.isEmpty || settings.enabledAreas.isDisjoint(with: detectedAreas) {
             settings.enabledAreas = detectedAreas
             for area in detectedAreas {
-                settings.areaBiases[area] = 1.0
+                if settings.areaBiases[area] == nil {
+                    settings.areaBiases[area] = 1.0
+                }
             }
             saveSettings()
         }
@@ -138,8 +140,17 @@ class QuestionManager: ObservableObject {
     func imagePath(for filename: String, folderName: String) -> String? {
         let name = (filename as NSString).deletingPathExtension
         let ext = (filename as NSString).pathExtension
-        return Bundle.main.path(forResource: name, ofType: ext, inDirectory: "Questions/\(folderName)")
-            ?? Bundle.main.path(forResource: name, ofType: ext)
+        
+        if let path = Bundle.main.path(forResource: name, ofType: ext, inDirectory: folderName) {
+            return path
+        }
+        if let path = Bundle.main.path(forResource: name, ofType: ext, inDirectory: "Questions/\(folderName)") {
+            return path
+        }
+        if let path = Bundle.main.path(forResource: name, ofType: ext) {
+            return path
+        }
+        return nil
     }
 
     private func loadUserData() {
