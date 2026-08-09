@@ -1,46 +1,30 @@
 name: StudyTester
-
 options:
-bundleIdPrefix: com.studytester
-deploymentTarget:
-iOS: "16.0"
-xcodeVersion: "15.4"
-projectFormat: xcode15_3
+  bundleIdPrefix: com.studytester
+  xcodeVersion: "15.4"
+  deploymentTarget:
+    iOS: "16.0"
 
 targets:
-StudyTester:
-type: application
-platform: iOS
-sources:
-- StudyTester
-
-```
-settings:
-  PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
-  GENERATE_INFOPLIST_FILE: YES
-
-info:
-  CFBundleURLTypes:
-    - CFBundleURLName: com.studytester.app
-      CFBundleTypeRole: Editor
-      CFBundleURLSchemes:
-        - studyapp
-
-  LSApplicationQueriesSchemes:
-    - instagram
-    - youtube
-    - tiktok
-    - twitter
-    - xhsdiscover
-    - x
-```
-
-schemes:
-StudyTester:
-build:
-targets:
-StudyTester: all
-run:
-config: Debug
-archive:
-config: Release
+  StudyTester:
+    type: application
+    platform: iOS
+    sources:
+      - StudyTester
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.studytester.app
+      GENERATE_INFOPLIST_FILE: YES
+    info:
+      properties:
+        CFBundleURLTypes:
+          - CFBundleURLName: com.studytester.app
+            CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - studyapp
+        LSApplicationQueriesSchemes:
+          - instagram
+          - youtube
+          - tiktok
+          - twitter
+          - xhsdiscover
+          - x
