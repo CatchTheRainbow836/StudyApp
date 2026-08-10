@@ -16,7 +16,7 @@ struct ManualDashboardView: View {
                     Image(systemName: "book.pages.fill")
                         .font(.system(size: 64))
                         .foregroundColor(.blue)
-                    Text("StudyTester")
+                    Text("StudyApp")
                         .font(.largeTitle.bold())
                 }
                 .padding(.top, 24)
@@ -93,9 +93,9 @@ struct StatisticsView: View {
             List {
                 Section(header: Text("Overall Summary")) {
                     HStack {
-                        Text("Total Answered")
+                        Text("Total Attempts")
                         Spacer()
-                        Text("\(totalAnswered)")
+                        Text("\(totalAttempts)")
                             .bold()
                     }
                     HStack {
@@ -112,7 +112,7 @@ struct StatisticsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(area).font(.headline)
                             HStack {
-                                Text("Answered: \(areaAnswered(area))")
+                                Text("Attempts: \(areaAttempts(area))")
                                 Spacer()
                                 Text("Correct: \(areaCorrect(area))")
                                     .foregroundColor(.green)
@@ -133,26 +133,15 @@ struct StatisticsView: View {
         .navigationViewStyle(.stack)
     }
 
-    private var totalAnswered: Int { 
-        qManager.attempts.values.reduce(0) { $0 + $1.totalAttempts } 
-    }
-    
-    private var totalCorrect: Int { 
-        qManager.attempts.values.reduce(0) { $0 + $1.correctAttempts } 
-    }
+    private var totalAttempts: Int { qManager.attempts.count }
+    private var totalCorrect: Int { qManager.attempts.filter { $0.isCorrect }.count }
 
-    private func areaAnswered(_ area: String) -> Int {
-        let qIds = Set(qManager.questions.filter { $0.areaOfStudy == area }.map { $0.id })
-        return qManager.attempts.values
-            .filter { qIds.contains($0.questionId) }
-            .reduce(0) { $0 + $1.totalAttempts }
+    private func areaAttempts(_ area: String) -> Int {
+        qManager.attempts.filter { $0.areaOfStudy == area }.count
     }
 
     private func areaCorrect(_ area: String) -> Int {
-        let qIds = Set(qManager.questions.filter { $0.areaOfStudy == area }.map { $0.id })
-        return qManager.attempts.values
-            .filter { qIds.contains($0.questionId) }
-            .reduce(0) { $0 + $1.correctAttempts }
+        qManager.attempts.filter { $0.areaOfStudy == area && $0.isCorrect }.count
     }
 }
 
@@ -163,13 +152,14 @@ struct ExportDataView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Text("Raw JSON Attempt Logs")
+                Text("Raw Attempt Logs")
                     .font(.headline)
 
                 ScrollView {
                     Text(qManager.exportDataJSON())
                         .font(.system(.caption, design: .monospaced))
                         .padding()
+                        .frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color(.secondarySystemBackground))
                         .cornerRadius(8)
                 }
@@ -200,6 +190,7 @@ struct ExportDataView: View {
 struct SettingsView: View {
     @EnvironmentObject var qManager: QuestionManager
     @Environment(\.dismiss) var dismiss
+    @State private var showClearConfirmation: Bool = false
 
     var body: some View {
         NavigationView {
@@ -234,6 +225,22 @@ struct SettingsView: View {
                         }
                     }
                 }
+
+                Section(header: Text("Manage Data & Defaults")) {
+                    Button(action: {
+                        qManager.resetSettingsToDefault()
+                    }) {
+                        Text("Reset to Default Settings")
+                            .foregroundColor(.blue)
+                    }
+
+                    Button(action: {
+                        showClearConfirmation = true
+                    }) {
+                        Text("Clear Saved Data")
+                            .foregroundColor(.red)
+                    }
+                }
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -245,7 +252,77 @@ struct SettingsView: View {
                     }
                 }
             }
+            .sheet(isPresented: $showClearConfirmation) {
+                ClearDataSheet()
+            }
         }
         .navigationViewStyle(.stack)
+    }
+}
+
+struct ClearDataSheet: View {
+    @EnvironmentObject var qManager: QuestionManager
+    @Environment(\.dismiss) var dismiss
+    @State private var inputWord: String = ""
+
+    var body: some View {
+        NavigationView {
+            VStack(spacing: 20) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(.red)
+
+                Text("Clear All Saved Data?")
+                    .font(.title2.bold())
+
+                Text("This action cannot be undone. All your individual question attempt history will be permanently deleted.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Type **clear** to confirm:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    TextField("Type 'clear'", text: $inputWord)
+                        .textFieldStyle(.roundedBorder)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                }
+                .padding(.horizontal)
+
+                Button(action: {
+                    qManager.clearAllSavedData()
+                    dismiss()
+                }) {
+                    Text("Permanently Delete Data")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 50)
+                        .background(isClearEnabled ? Color.red : Color.gray)
+                        .cornerRadius(12)
+                }
+                .disabled(!isClearEnabled)
+                .padding(.horizontal)
+
+                Spacer()
+            }
+            .padding(.top, 30)
+            .navigationTitle("Confirm Wipe")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .navigationViewStyle(.stack)
+    }
+
+    private var isClearEnabled: Bool {
+        inputWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == "clear"
     }
 }

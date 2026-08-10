@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct StudyTesterApp: App {
+struct StudyApp: App {
     @State private var returnURL: URL? = nil
     @StateObject private var qManager = QuestionManager()
 

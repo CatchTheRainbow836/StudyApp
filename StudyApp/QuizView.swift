@@ -61,7 +61,7 @@ struct QuizView: View {
 
                 if let q = currentQuestion {
                     ScrollView(.vertical, showsIndicators: true) {
-                        VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 16) {
                             
                             if let ctxText = q.contextText {
                                 Text(ctxText)
@@ -71,11 +71,11 @@ struct QuizView: View {
                                     .cornerRadius(8)
                             }
                             if let ctxImg = q.contextImage {
-                                ZoomableImageView(imagePath: qManager.imagePath(for: ctxImg, folderName: q.setFolderName))
+                                ZoomableImageView(imagePath: qManager.imagePath(for: ctxImg, folderName: q.setFolderName), maxHeight: 180)
                             }
 
                             ForEach(q.questionImages, id: \.self) { imgName in
-                                ZoomableImageView(imagePath: qManager.imagePath(for: imgName, folderName: q.setFolderName))
+                                ZoomableImageView(imagePath: qManager.imagePath(for: imgName, folderName: q.setFolderName), maxHeight: 180)
                             }
 
                             VStack(spacing: 12) {
@@ -174,7 +174,7 @@ struct QuizView: View {
         isCorrect = correct
         isAnswerSubmitted = true
 
-        qManager.recordAttempt(questionId: q.id, isCorrect: correct)
+        qManager.recordAttempt(question: q, selectedChoice: choice, isCorrect: correct)
 
         withAnimation(.easeInOut(duration: 0.2)) {
             flashColor = correct ? .green : .red
@@ -231,7 +231,7 @@ struct ChoiceRow: View {
 
                 VStack {
                     ForEach(images, id: \.self) { img in
-                        ZoomableImageView(imagePath: qManager.imagePath(for: img, folderName: folderName))
+                        ZoomableImageView(imagePath: qManager.imagePath(for: img, folderName: folderName), maxHeight: 120)
                     }
                 }
             }

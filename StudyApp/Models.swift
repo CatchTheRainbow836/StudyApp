@@ -31,11 +31,16 @@ struct Question: Identifiable, Codable {
     let correctAnswer: String
 }
 
-struct QuestionAttempt: Codable {
+struct SingleAttempt: Codable, Identifiable {
+    var id: UUID = UUID()
     let questionId: String
-    var totalAttempts: Int
-    var correctAttempts: Int
-    var lastAttemptDate: Date
+    let setFolderName: String
+    let questionNumber: Int
+    let areaOfStudy: String
+    let selectedChoice: String
+    let correctAnswer: String
+    let isCorrect: Bool
+    let timestamp: Date
 }
 
 struct AppSettings: Codable {

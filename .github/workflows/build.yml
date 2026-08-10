@@ -27,19 +27,19 @@ jobs:
 
       - name: Generate Xcode Project
         run: |
-          rm -rf StudyTester.xcodeproj
+          rm -rf StudyApp.xcodeproj
           xcodegen generate
 
       - name: Verify Xcode Project Format
         run: |
           echo "Generated project format:"
-          grep -E 'objectVersion|compatibilityVersion' StudyTester.xcodeproj/project.pbxproj | head -5
+          grep -E 'objectVersion|compatibilityVersion' StudyApp.xcodeproj/project.pbxproj | head -5
 
       - name: Build iOS Application
         run: |
           xcodebuild \
-            -project StudyTester.xcodeproj \
-            -scheme StudyTester \
+            -project StudyApp.xcodeproj \
+            -scheme StudyApp \
             -sdk iphoneos \
             -configuration Release \
             -derivedDataPath build \
@@ -49,17 +49,17 @@ jobs:
 
       - name: Package Payload to IPA
         run: |
-          rm -rf Payload StudyTester.ipa
+          rm -rf Payload StudyApp.ipa
           mkdir -p Payload
 
           cp -R \
-            build/Build/Products/Release-iphoneos/StudyTester.app \
+            build/Build/Products/Release-iphoneos/StudyApp.app \
             Payload/
 
-          zip -r StudyTester.ipa Payload
+          zip -r StudyApp.ipa Payload
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: StudyTester-IPA
-          path: StudyTester.ipa
+          name: StudyApp-IPA
+          path: StudyApp.ipa
