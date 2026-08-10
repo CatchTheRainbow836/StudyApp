@@ -11,17 +11,17 @@ struct ManualDashboardView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 24) {
-                VStack(spacing: 12) {
+            VStack(spacing: 28) {
+                VStack(spacing: 16) {
                     Image(systemName: "book.pages.fill")
-                        .font(.system(size: 64))
+                        .font(.system(size: 110))
                         .foregroundColor(.blue)
                     Text("StudyApp")
-                        .font(.largeTitle.bold())
+                        .font(.system(size: 40, weight: .bold))
                 }
                 .padding(.top, 24)
 
-                VStack(spacing: 14) {
+                VStack(spacing: 18) {
                     DashboardButton(title: "Answer Questions", icon: "play.circle.fill", color: .blue) {
                         activeSheet = .quiz
                     }
@@ -65,21 +65,21 @@ struct DashboardButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 16) {
                 Image(systemName: icon)
-                    .font(.title2)
+                    .font(.system(size: 36))
                 Text(title)
-                    .font(.headline)
+                    .font(.title2.bold())
                 Spacer()
                 Image(systemName: "chevron.right")
-                    .font(.subheadline)
+                    .font(.title3)
                     .opacity(0.6)
             }
             .foregroundColor(.white)
-            .padding()
-            .frame(height: 56)
+            .padding(.horizontal, 24)
+            .frame(height: 112)
             .background(color)
-            .cornerRadius(14)
+            .cornerRadius(20)
         }
     }
 }
@@ -93,15 +93,21 @@ struct StatisticsView: View {
             List {
                 Section(header: Text("Overall Summary")) {
                     HStack {
-                        Text("Total Attempts")
+                        Text("Questions Attempted")
                         Spacer()
-                        Text("\(totalAttempts)")
+                        Text("\(totalQuestionsAttempted)")
                             .bold()
                     }
                     HStack {
-                        Text("Total Correct")
+                        Text("Total Choices Submitted")
                         Spacer()
-                        Text("\(totalCorrect)")
+                        Text("\(totalChoiceAttempts)")
+                            .bold()
+                    }
+                    HStack {
+                        Text("Total Correct Answers")
+                        Spacer()
+                        Text("\(totalCorrectAnswers)")
                             .bold()
                             .foregroundColor(.green)
                     }
@@ -112,9 +118,9 @@ struct StatisticsView: View {
                         VStack(alignment: .leading, spacing: 6) {
                             Text(area).font(.headline)
                             HStack {
-                                Text("Attempts: \(areaAttempts(area))")
+                                Text("Questions Tracked: \(areaQuestionsCount(area))")
                                 Spacer()
-                                Text("Correct: \(areaCorrect(area))")
+                                Text("Correct: \(areaCorrectCount(area))")
                                     .foregroundColor(.green)
                             }
                             .font(.caption)
@@ -133,15 +139,26 @@ struct StatisticsView: View {
         .navigationViewStyle(.stack)
     }
 
-    private var totalAttempts: Int { qManager.attempts.count }
-    private var totalCorrect: Int { qManager.attempts.filter { $0.isCorrect }.count }
-
-    private func areaAttempts(_ area: String) -> Int {
-        qManager.attempts.filter { $0.areaOfStudy == area }.count
+    private var totalQuestionsAttempted: Int { qManager.records.count }
+    
+    private var totalChoiceAttempts: Int {
+        qManager.records.reduce(0) { $0 + $1.selectedChoices.count }
     }
 
-    private func areaCorrect(_ area: String) -> Int {
-        qManager.attempts.filter { $0.areaOfStudy == area && $0.isCorrect }.count
+    private var totalCorrectAnswers: Int {
+        qManager.records.reduce(0) { count, rec in
+            count + rec.selectedChoices.filter { $0 == rec.correctAnswer }.count
+        }
+    }
+
+    private func areaQuestionsCount(_ area: String) -> Int {
+        qManager.records.filter { $0.areaOfStudy == area }.count
+    }
+
+    private func areaCorrectCount(_ area: String) -> Int {
+        qManager.records.filter { $0.areaOfStudy == area }.reduce(0) { count, rec in
+            count + rec.selectedChoices.filter { $0 == rec.correctAnswer }.count
+        }
     }
 }
 
@@ -152,7 +169,7 @@ struct ExportDataView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 20) {
-                Text("Raw Attempt Logs")
+                Text("Raw Question Records JSON")
                     .font(.headline)
 
                 ScrollView {
@@ -195,6 +212,10 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("Appearance")) {
+                    Toggle("Dark Mode", isOn: $qManager.settings.isDarkMode)
+                }
+
                 Section(header: Text("Auto-Trigger Settings")) {
                     Stepper("Questions Required: \(qManager.settings.autoTargetCount)", value: $qManager.settings.autoTargetCount, in: 1...20)
                 }
@@ -275,7 +296,7 @@ struct ClearDataSheet: View {
                 Text("Clear All Saved Data?")
                     .font(.title2.bold())
 
-                Text("This action cannot be undone. All your individual question attempt history will be permanently deleted.")
+                Text("This action cannot be undone. All recorded question history will be permanently deleted.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                     .multilineTextAlignment(.center)

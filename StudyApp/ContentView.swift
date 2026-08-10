@@ -45,6 +45,7 @@ struct ContentView: View {
                 }
             }
         }
+        .preferredColorScheme(qManager.settings.isDarkMode ? .dark : .light)
         .onChange(of: returnURL) { newValue in
             validateDeepLink(newValue)
         }

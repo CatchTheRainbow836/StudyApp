@@ -1,5 +1,21 @@
 import SwiftUI
 
+enum FramePresetSize {
+    case small       // ~55pt for standard 1-line answer images
+    case medium      // ~160pt for standard images or sub-questions
+    case large       // ~320pt for primary question images
+    case extraLarge  // ~420pt for primary context images
+
+    var height: CGFloat {
+        switch self {
+        case .small: return 55
+        case .medium: return 160
+        case .large: return 320
+        case .extraLarge: return 420
+        }
+    }
+}
+
 struct QuizView: View {
     @EnvironmentObject var qManager: QuestionManager
     @Environment(\.openURL) var openURL
@@ -63,19 +79,26 @@ struct QuizView: View {
                     ScrollView(.vertical, showsIndicators: true) {
                         VStack(alignment: .leading, spacing: 16) {
                             
-                            if let ctxText = q.contextText {
-                                Text(ctxText)
+                            if let filteredText = cleanContextText(q.contextText), !filteredText.isEmpty {
+                                Text(filteredText)
                                     .font(.subheadline)
                                     .padding()
                                     .background(Color.orange.opacity(0.1))
                                     .cornerRadius(8)
                             }
+
                             if let ctxImg = q.contextImage {
-                                ZoomableImageView(imagePath: qManager.imagePath(for: ctxImg, folderName: q.setFolderName), maxHeight: 180)
+                                ZoomableImageView(
+                                    imagePath: qManager.imagePath(for: ctxImg, folderName: q.setFolderName),
+                                    maxHeight: FramePresetSize.extraLarge.height
+                                )
                             }
 
                             ForEach(q.questionImages, id: \.self) { imgName in
-                                ZoomableImageView(imagePath: qManager.imagePath(for: imgName, folderName: q.setFolderName), maxHeight: 180)
+                                ZoomableImageView(
+                                    imagePath: qManager.imagePath(for: imgName, folderName: q.setFolderName),
+                                    maxHeight: (q.contextImage != nil || q.contextText != nil) ? FramePresetSize.medium.height : FramePresetSize.large.height
+                                )
                             }
 
                             VStack(spacing: 12) {
@@ -87,6 +110,7 @@ struct QuizView: View {
                                         isSelected: selectedChoice == key,
                                         isSubmitted: isAnswerSubmitted,
                                         isCorrectChoice: key == q.correctAnswer,
+                                        presetSize: choicePresetSize(for: q.choices[key] ?? []),
                                         action: {
                                             if !isAnswerSubmitted { selectedChoice = key }
                                         }
@@ -98,6 +122,7 @@ struct QuizView: View {
                         }
                         .padding(.horizontal)
                     }
+                    .id(q.id)
                     .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .leading)))
 
                     VStack {
@@ -155,12 +180,29 @@ struct QuizView: View {
         .onAppear { loadNextQuestion() }
     }
 
+    private func cleanContextText(_ rawText: String?) -> String? {
+        guard let text = rawText else { return nil }
+        let lines = text.components(separatedBy: .newlines)
+        let filtered = lines.filter { line in
+            !line.localizedCaseInsensitiveContains("use the following information to answer")
+        }
+        let result = filtered.joined(separator: "\n").trimmingCharacters(in: .whitespacesAndNewlines)
+        return result.isEmpty ? nil : result
+    }
+
+    private func choicePresetSize(for images: [String]) -> FramePresetSize {
+        if images.count > 1 {
+            return .medium
+        }
+        return .small
+    }
+
     private func sortedChoiceKeys(_ choices: [String: [String]]) -> [String] {
         return choices.keys.sorted()
     }
 
     private func loadNextQuestion() {
-        withAnimation(.easeInOut(duration: 0.25)) {
+        withAnimation(.easeInOut(duration: 0.3)) {
             selectedChoice = nil
             isAnswerSubmitted = false
             currentQuestion = qManager.selectNextQuestion(excluding: currentQuestion?.id)
@@ -174,7 +216,7 @@ struct QuizView: View {
         isCorrect = correct
         isAnswerSubmitted = true
 
-        qManager.recordAttempt(question: q, selectedChoice: choice, isCorrect: correct)
+        qManager.recordAttempt(question: q, selectedChoice: choice)
 
         withAnimation(.easeInOut(duration: 0.2)) {
             flashColor = correct ? .green : .red
@@ -218,6 +260,7 @@ struct ChoiceRow: View {
     let isSelected: Bool
     let isSubmitted: Bool
     let isCorrectChoice: Bool
+    let presetSize: FramePresetSize
     let action: () -> Void
 
     var body: some View {
@@ -231,7 +274,10 @@ struct ChoiceRow: View {
 
                 VStack {
                     ForEach(images, id: \.self) { img in
-                        ZoomableImageView(imagePath: qManager.imagePath(for: img, folderName: folderName), maxHeight: 120)
+                        ZoomableImageView(
+                            imagePath: qManager.imagePath(for: img, folderName: folderName),
+                            maxHeight: presetSize.height
+                        )
                     }
                 }
             }

@@ -2,11 +2,11 @@ import Foundation
 
 class QuestionManager: ObservableObject {
     @Published var questions: [Question] = []
-    @Published var attempts: [SingleAttempt] = []
+    @Published var records: [QuestionRecord] = []
     @Published var settings: AppSettings = AppSettings()
     @Published var availableAreas: [String] = []
 
-    private let attemptsKey = "study_app_attempts_v2"
+    private let recordsKey = "study_app_records_v3"
     private let settingsKey = "study_app_settings_v2"
 
     init() {
@@ -83,14 +83,14 @@ class QuestionManager: ObservableObject {
         let activePool = questions.filter { settings.enabledAreas.contains($0.areaOfStudy) && $0.id != currentId }
         guard !activePool.isEmpty else { return nil }
 
-        let attemptsByQ = Dictionary(grouping: attempts, by: { $0.questionId })
+        let recordsByQ = Dictionary(uniqueKeysWithValues: records.map { ($0.questionId, $0) })
 
-        let unanswered = activePool.filter { (attemptsByQ[$0.id] ?? []).isEmpty }
+        let unanswered = activePool.filter { recordsByQ[$0.id] == nil || (recordsByQ[$0.id]?.selectedChoices.isEmpty ?? true) }
         if let chosen = unanswered.randomElement() { return chosen }
 
         let unmastered = activePool.filter { q in
-            let qAttempts = attemptsByQ[q.id] ?? []
-            return !qAttempts.isEmpty && !qAttempts.contains(where: { $0.isCorrect })
+            guard let rec = recordsByQ[q.id], let lastChoice = rec.selectedChoices.last else { return true }
+            return lastChoice != q.correctAnswer
         }
         if let chosen = unmastered.randomElement() { return chosen }
 
@@ -99,9 +99,11 @@ class QuestionManager: ObservableObject {
             let areaQuestions = activePool.filter { $0.areaOfStudy == area }
             guard !areaQuestions.isEmpty else { continue }
 
-            let areaAttempts = attempts.filter { att in areaQuestions.contains(where: { $0.id == att.questionId }) }
-            let totalAttempts = areaAttempts.count
-            let totalCorrect = areaAttempts.filter { $0.isCorrect }.count
+            let areaRecords = records.filter { rec in areaQuestions.contains(where: { $0.id == rec.questionId }) }
+            let totalAttempts = areaRecords.reduce(0) { $0 + $1.selectedChoices.count }
+            let totalCorrect = areaRecords.reduce(0) { count, rec in
+                count + rec.selectedChoices.filter { $0 == rec.correctAnswer }.count
+            }
 
             let accuracy = totalAttempts > 0 ? Double(totalCorrect) / Double(totalAttempts) : 0.5
             let inverseAccuracyWeight = 1.0 - accuracy + 0.1
@@ -125,19 +127,22 @@ class QuestionManager: ObservableObject {
         return activePool.randomElement()
     }
 
-    func recordAttempt(question: Question, selectedChoice: String, isCorrect: Bool) {
-        let newAttempt = SingleAttempt(
-            questionId: question.id,
-            setFolderName: question.setFolderName,
-            questionNumber: question.number,
-            areaOfStudy: question.areaOfStudy,
-            selectedChoice: selectedChoice,
-            correctAnswer: question.correctAnswer,
-            isCorrect: isCorrect,
-            timestamp: Date()
-        )
-
-        attempts.append(newAttempt)
+    func recordAttempt(question: Question, selectedChoice: String) {
+        if let index = records.firstIndex(where: { $0.questionId == question.id }) {
+            records[index].selectedChoices.append(selectedChoice)
+            records[index].timestamps.append(Date())
+        } else {
+            let newRecord = QuestionRecord(
+                questionId: question.id,
+                setFolderName: question.setFolderName,
+                questionNumber: question.number,
+                areaOfStudy: question.areaOfStudy,
+                correctAnswer: question.correctAnswer,
+                selectedChoices: [selectedChoice],
+                timestamps: [Date()]
+            )
+            records.append(newRecord)
+        }
         saveUserData()
     }
 
@@ -158,11 +163,11 @@ class QuestionManager: ObservableObject {
     }
 
     private func loadUserData() {
-        if let data = UserDefaults.standard.data(forKey: attemptsKey),
-           let decoded = try? JSONDecoder().decode([SingleAttempt].self, from: data) {
-            self.attempts = decoded
+        if let data = UserDefaults.standard.data(forKey: recordsKey),
+           let decoded = try? JSONDecoder().decode([QuestionRecord].self, from: data) {
+            self.records = decoded
         } else {
-            self.attempts = []
+            self.records = []
         }
 
         if let data = UserDefaults.standard.data(forKey: settingsKey),
@@ -172,8 +177,8 @@ class QuestionManager: ObservableObject {
     }
 
     private func saveUserData() {
-        if let encoded = try? JSONEncoder().encode(attempts) {
-            UserDefaults.standard.set(encoded, forKey: attemptsKey)
+        if let encoded = try? JSONEncoder().encode(records) {
+            UserDefaults.standard.set(encoded, forKey: recordsKey)
         }
     }
 
@@ -194,15 +199,15 @@ class QuestionManager: ObservableObject {
     }
 
     func clearAllSavedData() {
-        self.attempts = []
-        UserDefaults.standard.removeObject(forKey: attemptsKey)
+        self.records = []
+        UserDefaults.standard.removeObject(forKey: recordsKey)
     }
 
     func exportDataJSON() -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
-        guard let encoded = try? encoder.encode(attempts),
+        guard let encoded = try? encoder.encode(records),
               let jsonStr = String(data: encoded, encoding: .utf8) else {
             return "[]"
         }

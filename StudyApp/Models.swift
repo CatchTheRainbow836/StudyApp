@@ -31,20 +31,20 @@ struct Question: Identifiable, Codable {
     let correctAnswer: String
 }
 
-struct SingleAttempt: Codable, Identifiable {
-    var id: UUID = UUID()
+struct QuestionRecord: Codable, Identifiable {
+    var id: String { questionId }
     let questionId: String
     let setFolderName: String
     let questionNumber: Int
     let areaOfStudy: String
-    let selectedChoice: String
     let correctAnswer: String
-    let isCorrect: Bool
-    let timestamp: Date
+    var selectedChoices: [String]
+    var timestamps: [Date]
 }
 
 struct AppSettings: Codable {
     var autoTargetCount: Int = 5
     var enabledAreas: Set<String> = []
     var areaBiases: [String: Double] = [:]
+    var isDarkMode: Bool = true
 }
