@@ -1,4 +1,5 @@
 import SwiftUI
+import PencilKit
 
 enum FramePresetSize {
     case small
@@ -36,6 +37,7 @@ struct QuizView: View {
     @State private var overlayColor: Color = .green
 
     @State private var activeCanvasData: CanvasData? = nil
+    @State private var scratchpadDrawings: [String: PKDrawing] = [:]
 
     var body: some View {
         ZStack {
@@ -207,8 +209,15 @@ struct QuizView: View {
             }
         }
         .onAppear { loadNextQuestion() }
+        .onDisappear { scratchpadDrawings.removeAll() }
         .fullScreenCover(item: $activeCanvasData) { data in
-            CanvasView(data: data)
+            CanvasView(
+                data: data,
+                initialDrawing: scratchpadDrawings[data.questionId] ?? PKDrawing(),
+                onSaveDrawing: { updatedDrawing in
+                    scratchpadDrawings[data.questionId] = updatedDrawing
+                }
+            )
         }
     }
 
@@ -226,6 +235,7 @@ struct QuizView: View {
         }
 
         let canvasData = CanvasData(
+            questionId: q.id,
             title: "Question \(q.number) Scratchpad",
             contextText: cleanContextText(q.contextText),
             contextImagePath: ctxImgPath,
@@ -256,6 +266,10 @@ struct QuizView: View {
     }
 
     private func loadNextQuestion() {
+        if let oldId = currentQuestion?.id {
+            scratchpadDrawings.removeValue(forKey: oldId)
+        }
+
         withAnimation(.easeInOut(duration: 0.3)) {
             selectedChoice = nil
             isAnswerSubmitted = false

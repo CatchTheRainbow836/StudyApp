@@ -3,6 +3,7 @@ import PencilKit
 
 struct CanvasData: Identifiable {
     let id = UUID()
+    let questionId: String
     let title: String
     let contextText: String?
     let contextImagePath: String?
@@ -11,11 +12,15 @@ struct CanvasData: Identifiable {
 
 struct CanvasView: View {
     let data: CanvasData
+    let initialDrawing: PKDrawing
+    var onSaveDrawing: ((PKDrawing) -> Void)? = nil
+
     @Environment(\.dismiss) var dismiss
 
     @State private var canvasView = PKCanvasView()
     @State private var isHideWriting = false
     @State private var allowsFingerDrawing = true
+    @State private var showDeleteConfirmation = false
 
     var body: some View {
         ZStack {
@@ -25,14 +30,19 @@ struct CanvasView: View {
             CanvasContainerRepresentable(
                 canvasView: $canvasView,
                 data: data,
+                initialDrawing: initialDrawing,
                 isHideWriting: isHideWriting,
-                allowsFingerDrawing: allowsFingerDrawing
+                allowsFingerDrawing: allowsFingerDrawing,
+                onSaveDrawing: onSaveDrawing
             )
-            .ignoresSafeArea(.all, edges: .bottom)
+            .ignoresSafeArea()
 
             VStack {
                 HStack(spacing: 12) {
-                    Button(action: { dismiss() }) {
+                    Button(action: {
+                        onSaveDrawing?(canvasView.drawing)
+                        dismiss()
+                    }) {
                         HStack(spacing: 4) {
                             Image(systemName: "chevron.left")
                                 .font(.system(size: 18, weight: .bold))
@@ -97,7 +107,7 @@ struct CanvasView: View {
                         }
 
                         Button(action: {
-                            canvasView.drawing = PKDrawing()
+                            showDeleteConfirmation = true
                         }) {
                             Image(systemName: "trash")
                                 .font(.system(size: 16, weight: .semibold))
@@ -118,41 +128,45 @@ struct CanvasView: View {
             }
         }
         .navigationBarHidden(true)
+        .alert("Clear Scratchpad?", isPresented: $showDeleteConfirmation) {
+            Button("Clear All", role: .destructive) {
+                canvasView.drawing = PKDrawing()
+                onSaveDrawing?(PKDrawing())
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Are you sure you want to delete all writing on this scratchpad? This action cannot be undone.")
+        }
+        .onDisappear {
+            onSaveDrawing?(canvasView.drawing)
+        }
     }
 }
 
 struct CanvasContainerRepresentable: UIViewRepresentable {
     @Binding var canvasView: PKCanvasView
     let data: CanvasData
+    let initialDrawing: PKDrawing
     let isHideWriting: Bool
     let allowsFingerDrawing: Bool
+    var onSaveDrawing: ((PKDrawing) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
 
-    func makeUIView(context: Context) -> UIScrollView {
-        let scrollView = UIScrollView()
-        scrollView.minimumZoomScale = 0.3
-        scrollView.maximumZoomScale = 3.0
-        scrollView.zoomScale = 1.0
-        scrollView.delegate = context.coordinator
-        scrollView.showsHorizontalScrollIndicator = false
-        scrollView.showsVerticalScrollIndicator = false
-        scrollView.bouncesZoom = true
-        scrollView.backgroundColor = UIColor.systemGroupedBackground
-
+    func makeUIView(context: Context) -> PKCanvasView {
         let canvasWidth: CGFloat = 3600
         let canvasHeight: CGFloat = 3600
 
-        let contentView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-
+        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
         let dotPattern = createDotGridPatternImage()
-        contentView.backgroundColor = UIColor(patternImage: dotPattern)
+        containerView.backgroundColor = UIColor(patternImage: dotPattern)
+        containerView.isUserInteractionEnabled = false
 
         let cardView = createCardContent(width: 800)
         cardView.center = CGPoint(x: canvasWidth / 2, y: canvasHeight / 2)
-        contentView.addSubview(cardView)
+        containerView.addSubview(cardView)
 
         canvasView.frame = CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
         canvasView.backgroundColor = .clear
@@ -160,23 +174,35 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         canvasView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
         canvasView.overrideUserInterfaceStyle = .light
 
-        contentView.addSubview(canvasView)
-        scrollView.addSubview(contentView)
-        scrollView.contentSize = CGSize(width: canvasWidth, height: canvasHeight)
+        if canvasView.drawing.strokes.isEmpty && !initialDrawing.strokes.isEmpty {
+            canvasView.drawing = initialDrawing
+        }
+
+        canvasView.addSubview(containerView)
+        canvasView.sendSubviewToBack(containerView)
+
+        canvasView.contentSize = CGSize(width: canvasWidth, height: canvasHeight)
+        canvasView.minimumZoomScale = 0.3
+        canvasView.maximumZoomScale = 3.0
+        canvasView.zoomScale = 1.0
+        canvasView.delegate = context.coordinator
+        canvasView.showsHorizontalScrollIndicator = false
+        canvasView.showsVerticalScrollIndicator = false
+        canvasView.bouncesZoom = true
 
         let screenBounds = UIScreen.main.bounds
         let initialX = (canvasWidth - screenBounds.width) / 2
         let initialY = (canvasHeight - screenBounds.height) / 2
-        scrollView.contentOffset = CGPoint(x: max(0, initialX), y: max(0, initialY))
+        canvasView.contentOffset = CGPoint(x: max(0, initialX), y: max(0, initialY))
 
         context.coordinator.setupToolPicker(for: canvasView)
 
-        return scrollView
+        return canvasView
     }
 
-    func updateUIView(_ uiView: UIScrollView, context: Context) {
-        canvasView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
-        canvasView.alpha = isHideWriting ? 0.0 : 1.0
+    func updateUIView(_ uiView: PKCanvasView, context: Context) {
+        uiView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
+        uiView.alpha = isHideWriting ? 0.0 : 1.0
     }
 
     private func createDotGridPatternImage(gridSize: CGFloat = 24, dotRadius: CGFloat = 1.8) -> UIImage {
@@ -277,9 +303,10 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         return container
     }
 
-    class Coordinator: NSObject, UIScrollViewDelegate, PKToolPickerObserver {
+    class Coordinator: NSObject, UIScrollViewDelegate, PKToolPickerObserver, PKCanvasViewDelegate {
         var parent: CanvasContainerRepresentable
         var toolPicker: PKToolPicker?
+        private var lastOffsetY: CGFloat = 0
 
         init(_ parent: CanvasContainerRepresentable) {
             self.parent = parent
@@ -289,10 +316,38 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
             return scrollView.subviews.first
         }
 
+        func scrollViewDidScroll(_ scrollView: UIScrollView) {
+            let currentOffsetY = scrollView.contentOffset.y
+            let diff = currentOffsetY - lastOffsetY
+
+            if abs(diff) > 12 {
+                if diff > 0 {
+                    if toolPicker?.isVisible == true {
+                        toolPicker?.setVisible(false, forFirstResponder: parent.canvasView)
+                    }
+                } else {
+                    if toolPicker?.isVisible == false {
+                        toolPicker?.setVisible(true, forFirstResponder: parent.canvasView)
+                    }
+                }
+                lastOffsetY = currentOffsetY
+            }
+        }
+
+        func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+            parent.onSaveDrawing?(canvasView.drawing)
+        }
+
         func setupToolPicker(for canvasView: PKCanvasView) {
             if #available(iOS 14.0, *) {
                 let picker = PKToolPicker()
                 self.toolPicker = picker
+
+                let defaultRedPen = PKInkingTool(.pen, color: .red, width: 3.0)
+                picker.selectedTool = defaultRedPen
+                canvasView.tool = defaultRedPen
+
+                canvasView.delegate = self
                 picker.addObserver(canvasView)
                 picker.addObserver(self)
                 picker.setVisible(true, forFirstResponder: canvasView)

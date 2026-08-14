@@ -11,33 +11,35 @@ struct ManualDashboardView: View {
 
     var body: some View {
         NavigationView {
-            VStack(spacing: 28) {
-                VStack(spacing: 16) {
-                    Image(systemName: "book.pages.fill")
-                        .font(.system(size: 110))
-                        .foregroundColor(.blue)
-                    Text("StudyApp")
-                        .font(.system(size: 40, weight: .bold))
-                }
-                .padding(.top, 24)
+            ScrollView(.vertical, showsIndicators: true) {
+                VStack(spacing: 28) {
+                    VStack(spacing: 16) {
+                        Image(systemName: "book.pages.fill")
+                            .font(.system(size: 110))
+                            .foregroundColor(.blue)
+                        Text("StudyApp")
+                            .font(.system(size: 40, weight: .bold))
+                    }
+                    .padding(.top, 24)
 
-                VStack(spacing: 18) {
-                    DashboardButton(title: "Answer Questions", icon: "play.circle.fill", color: .blue) {
-                        activeSheet = .quiz
+                    VStack(spacing: 18) {
+                        DashboardButton(title: "Answer Questions", icon: "play.circle.fill", color: .blue) {
+                            activeSheet = .quiz
+                        }
+                        DashboardButton(title: "Statistics", icon: "chart.bar.fill", color: .purple) {
+                            activeSheet = .stats
+                        }
+                        DashboardButton(title: "Export Data", icon: "square.and.arrow.up.fill", color: .green) {
+                            activeSheet = .exportData
+                        }
+                        DashboardButton(title: "Settings", icon: "gearshape.fill", color: .gray) {
+                            activeSheet = .settings
+                        }
                     }
-                    DashboardButton(title: "Statistics", icon: "chart.bar.fill", color: .purple) {
-                        activeSheet = .stats
-                    }
-                    DashboardButton(title: "Export Data", icon: "square.and.arrow.up.fill", color: .green) {
-                        activeSheet = .exportData
-                    }
-                    DashboardButton(title: "Settings", icon: "gearshape.fill", color: .gray) {
-                        activeSheet = .settings
-                    }
-                }
-                .padding(.horizontal, 20)
+                    .padding(.horizontal, 20)
 
-                Spacer()
+                    Spacer(minLength: 24)
+                }
             }
             .navigationBarHidden(true)
             .fullScreenCover(item: $activeSheet) { item in
