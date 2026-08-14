@@ -21,6 +21,7 @@ struct CanvasView: View {
     @State private var isHideWriting = false
     @State private var allowsFingerDrawing = true
     @State private var showDeleteConfirmation = false
+    @State private var isTrayMinimized = false
 
     var body: some View {
         ZStack {
@@ -33,6 +34,7 @@ struct CanvasView: View {
                 initialDrawing: initialDrawing,
                 isHideWriting: isHideWriting,
                 allowsFingerDrawing: allowsFingerDrawing,
+                isTrayMinimized: $isTrayMinimized,
                 onSaveDrawing: onSaveDrawing
             )
             .ignoresSafeArea()
@@ -126,6 +128,80 @@ struct CanvasView: View {
 
                 Spacer()
             }
+
+            VStack {
+                Spacer()
+
+                if isTrayMinimized {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            isTrayMinimized = false
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "chevron.up")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("Show Pen Tools")
+                                .font(.caption.bold())
+                        }
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 6)
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: -2)
+                    }
+                    .padding(.bottom, 6)
+                    .gesture(
+                        DragGesture(minimumDistance: 5)
+                            .onEnded { value in
+                                if value.translation.height < 0 { // Dragged Up
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isTrayMinimized = false
+                                    }
+                                }
+                            }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                } else {
+                    // Minimize Handle Bar located directly above Pen Tray
+                    HStack {
+                        Spacer()
+                        Button(action: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                isTrayMinimized = true
+                            }
+                        }) {
+                            HStack(spacing: 4) {
+                                Capsule()
+                                    .fill(Color.secondary.opacity(0.6))
+                                    .frame(width: 28, height: 4)
+                                Image(systemName: "chevron.down")
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundColor(.secondary)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 5)
+                            .background(.ultraThinMaterial)
+                            .cornerRadius(12)
+                            .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+                        }
+                        Spacer()
+                    }
+                    .gesture(
+                        DragGesture(minimumDistance: 5)
+                            .onEnded { value in
+                                if value.translation.height > 5 { // Dragged Down
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        isTrayMinimized = true
+                                    }
+                                }
+                            }
+                    )
+                    .padding(.bottom, 82)
+                    .transition(.opacity)
+                }
+            }
         }
         .navigationBarHidden(true)
         .alert("Clear Scratchpad?", isPresented: $showDeleteConfirmation) {
@@ -149,7 +225,10 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
     let initialDrawing: PKDrawing
     let isHideWriting: Bool
     let allowsFingerDrawing: Bool
+    @Binding var isTrayMinimized: Bool
     var onSaveDrawing: ((PKDrawing) -> Void)?
+
+    static let containerTag = 1001
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
@@ -159,7 +238,11 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         let canvasWidth: CGFloat = 3600
         let canvasHeight: CGFloat = 3600
 
-        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+        let containerView = UIView()
+        containerView.tag = CanvasContainerRepresentable.containerTag
+        containerView.layer.anchorPoint = .zero
+        containerView.frame = CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
+
         let dotPattern = createDotGridPatternImage()
         containerView.backgroundColor = UIColor(patternImage: dotPattern)
         containerView.isUserInteractionEnabled = false
@@ -203,6 +286,13 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         uiView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
         uiView.alpha = isHideWriting ? 0.0 : 1.0
+
+        if isTrayMinimized {
+            context.coordinator.toolPicker?.setVisible(false, forFirstResponder: uiView)
+        } else {
+            context.coordinator.toolPicker?.setVisible(true, forFirstResponder: uiView)
+            uiView.becomeFirstResponder()
+        }
     }
 
     private func createDotGridPatternImage(gridSize: CGFloat = 24, dotRadius: CGFloat = 1.8) -> UIImage {
@@ -306,32 +396,13 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
     class Coordinator: NSObject, UIScrollViewDelegate, PKToolPickerObserver, PKCanvasViewDelegate {
         var parent: CanvasContainerRepresentable
         var toolPicker: PKToolPicker?
-        private var lastOffsetY: CGFloat = 0
 
         init(_ parent: CanvasContainerRepresentable) {
             self.parent = parent
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-            return scrollView.subviews.first
-        }
-
-        func scrollViewDidScroll(_ scrollView: UIScrollView) {
-            let currentOffsetY = scrollView.contentOffset.y
-            let diff = currentOffsetY - lastOffsetY
-
-            if abs(diff) > 12 {
-                if diff > 0 {
-                    if toolPicker?.isVisible == true {
-                        toolPicker?.setVisible(false, forFirstResponder: parent.canvasView)
-                    }
-                } else {
-                    if toolPicker?.isVisible == false {
-                        toolPicker?.setVisible(true, forFirstResponder: parent.canvasView)
-                    }
-                }
-                lastOffsetY = currentOffsetY
-            }
+            return scrollView.viewWithTag(CanvasContainerRepresentable.containerTag)
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
