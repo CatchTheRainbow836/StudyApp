@@ -164,7 +164,7 @@ struct CanvasView: View {
                     .padding(.bottom, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    // Minimize Handle Positioned Above Full Pen Tray
+                    // Minimize Handle Positioned Cleanly Above System Pen Tray
                     HStack {
                         Spacer()
                         Button(action: {
@@ -187,11 +187,14 @@ struct CanvasView: View {
                         }
                         Spacer()
                     }
-                    .padding(.bottom, 90)
+                    .padding(.bottom, 120)
+                    .zIndex(100)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
         .navigationBarHidden(true)
         .alert("Clear Scratchpad?", isPresented: $showDeleteConfirmation) {
             Button("Clear All", role: .destructive) {
@@ -225,20 +228,8 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         let canvasWidth: CGFloat = 3600
         let canvasHeight: CGFloat = 3600
 
-        // Container View without anchorPoint offset to prevent zoom drift
-        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-        containerView.isUserInteractionEnabled = false
-        containerView.tag = 888
-
-        // Tiled pattern background (instant render vs 3600x3600 bitmap render)
-        let patternTile = createDotPatternTileImage(gridSize: 24, dotRadius: 1.8)
-        containerView.backgroundColor = UIColor(patternImage: patternTile)
-
-        let cardView = createCardContent(width: 800)
-        cardView.center = CGPoint(x: canvasWidth / 2, y: canvasHeight / 2)
-        containerView.addSubview(cardView)
-
-        canvasView.frame = CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight)
+        // Allow canvasView frame to adapt flexibly to screen viewport bounds
+        canvasView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         canvasView.backgroundColor = .clear
         canvasView.isOpaque = false
         canvasView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
@@ -248,13 +239,6 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         canvasView.isScrollEnabled = true
         canvasView.isMultipleTouchEnabled = true
 
-        if canvasView.drawing.strokes.isEmpty && !initialDrawing.strokes.isEmpty {
-            canvasView.drawing = initialDrawing
-        }
-
-        canvasView.addSubview(containerView)
-        canvasView.sendSubviewToBack(containerView)
-
         canvasView.contentSize = CGSize(width: canvasWidth, height: canvasHeight)
         canvasView.minimumZoomScale = 0.3
         canvasView.maximumZoomScale = 3.0
@@ -263,6 +247,30 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         canvasView.showsHorizontalScrollIndicator = false
         canvasView.showsVerticalScrollIndicator = false
         canvasView.bouncesZoom = true
+
+        // Identify internal drawing canvas subview and tag it for unified scaling
+        let drawingContentView = canvasView.subviews.first ?? canvasView
+        drawingContentView.tag = 999
+
+        // Background container for dot grid pattern and question card
+        let containerView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
+        containerView.isUserInteractionEnabled = false
+        containerView.tag = 888
+
+        let patternTile = createDotPatternTileImage(gridSize: 24, dotRadius: 1.8)
+        containerView.backgroundColor = UIColor(patternImage: patternTile)
+
+        let cardView = createCardContent(width: 800)
+        cardView.center = CGPoint(x: canvasWidth / 2, y: canvasHeight / 2)
+        containerView.addSubview(cardView)
+
+        // Place containerView inside drawingContentView so background and strokes zoom together
+        drawingContentView.addSubview(containerView)
+        drawingContentView.sendSubviewToBack(containerView)
+
+        if canvasView.drawing.strokes.isEmpty && !initialDrawing.strokes.isEmpty {
+            canvasView.drawing = initialDrawing
+        }
 
         let screenBounds = UIScreen.main.bounds
         let initialX = (canvasWidth - screenBounds.width) / 2
@@ -295,7 +303,6 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         }
     }
 
-    // Lightweight 24x24 tile pattern generator (<1ms execution)
     private func createDotPatternTileImage(gridSize: CGFloat = 24, dotRadius: CGFloat = 1.8) -> UIImage {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: gridSize, height: gridSize))
         return renderer.image { ctx in
@@ -403,7 +410,7 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? {
-            return scrollView.viewWithTag(888)
+            return scrollView.viewWithTag(999) ?? scrollView.subviews.first
         }
 
         func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
