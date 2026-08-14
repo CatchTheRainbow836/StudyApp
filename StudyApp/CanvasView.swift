@@ -91,6 +91,17 @@ struct CanvasView: View {
                         Divider()
                             .frame(height: 16)
 
+                        // Toggle Pen Tray visibility from top bar
+                        Button(action: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                isToolPickerMinimized.toggle()
+                            }
+                        }) {
+                            Image(systemName: isToolPickerMinimized ? "pencil.slash" : "pencil.tip.crop.circle")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(isToolPickerMinimized ? .gray : .blue)
+                        }
+
                         Button(action: {
                             withAnimation(.easeInOut(duration: 0.2)) {
                                 isHideWriting.toggle()
@@ -131,40 +142,29 @@ struct CanvasView: View {
 
                 // Bottom Pen Tray Controls
                 if isToolPickerMinimized {
-                    // Minimized Sliver Bar
+                    // Minimized Floating Pill Button
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             isToolPickerMinimized = false
                         }
                     }) {
-                        VStack(spacing: 3) {
-                            Image(systemName: "chevron.up")
+                        HStack(spacing: 8) {
+                            Image(systemName: "pencil.tip")
                                 .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.blue)
-
-                            Capsule()
-                                .fill(Color.secondary.opacity(0.4))
-                                .frame(width: 36, height: 4)
+                            Text("Show Pen Tray")
+                                .font(.caption.weight(.bold))
                         }
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 28)
+                        .foregroundColor(.blue)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
                         .background(.ultraThinMaterial)
-                        .cornerRadius(14, corners: [.topLeft, .topRight])
-                        .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: -2)
+                        .cornerRadius(20)
+                        .shadow(color: Color.black.opacity(0.15), radius: 5, x: 0, y: 2)
                     }
-                    .gesture(
-                        DragGesture(minimumDistance: 8)
-                            .onEnded { value in
-                                if value.translation.height < -5 {
-                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                        isToolPickerMinimized = false
-                                    }
-                                }
-                            }
-                    )
+                    .padding(.bottom, 24)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 } else {
-                    // Handle Bar Positioned Directly Above Full Pen Tray
+                    // Minimize Handle Positioned Above Full Pen Tray
                     HStack {
                         Spacer()
                         Button(action: {
@@ -179,25 +179,15 @@ struct CanvasView: View {
                                     .font(.caption2.weight(.bold))
                             }
                             .foregroundColor(.primary)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
                             .background(.ultraThinMaterial)
-                            .cornerRadius(14)
-                            .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
+                            .cornerRadius(16)
+                            .shadow(color: Color.black.opacity(0.15), radius: 4, x: 0, y: 2)
                         }
-                        .gesture(
-                            DragGesture(minimumDistance: 8)
-                                .onEnded { value in
-                                    if value.translation.height > 5 {
-                                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                            isToolPickerMinimized = true
-                                        }
-                                    }
-                                }
-                        )
                         Spacer()
                     }
-                    .padding(.bottom, 80)
+                    .padding(.bottom, 90)
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
@@ -235,16 +225,14 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         let canvasWidth: CGFloat = 3600
         let canvasHeight: CGFloat = 3600
 
+        // Container View without anchorPoint offset to prevent zoom drift
         let containerView = UIView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-        containerView.layer.anchorPoint = CGPoint(x: 0, y: 0)
-        containerView.layer.position = CGPoint(x: 0, y: 0)
         containerView.isUserInteractionEnabled = false
         containerView.tag = 888
 
-        let dotGridImageView = UIImageView(frame: CGRect(x: 0, y: 0, width: canvasWidth, height: canvasHeight))
-        dotGridImageView.image = createDotGridPatternImage(width: canvasWidth, height: canvasHeight)
-        dotGridImageView.contentMode = .scaleToFill
-        containerView.addSubview(dotGridImageView)
+        // Tiled pattern background (instant render vs 3600x3600 bitmap render)
+        let patternTile = createDotPatternTileImage(gridSize: 24, dotRadius: 1.8)
+        containerView.backgroundColor = UIColor(patternImage: patternTile)
 
         let cardView = createCardContent(width: 800)
         cardView.center = CGPoint(x: canvasWidth / 2, y: canvasHeight / 2)
@@ -255,6 +243,10 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         canvasView.isOpaque = false
         canvasView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
         canvasView.overrideUserInterfaceStyle = .light
+
+        // Enable multi-touch panning & zooming during writing mode
+        canvasView.isScrollEnabled = true
+        canvasView.isMultipleTouchEnabled = true
 
         if canvasView.drawing.strokes.isEmpty && !initialDrawing.strokes.isEmpty {
             canvasView.drawing = initialDrawing
@@ -284,12 +276,15 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
 
     func updateUIView(_ uiView: PKCanvasView, context: Context) {
         uiView.drawingPolicy = allowsFingerDrawing ? .anyInput : .pencilOnly
+        uiView.isScrollEnabled = true
+        uiView.isMultipleTouchEnabled = true
         uiView.alpha = isHideWriting ? 0.0 : 1.0
 
         if let picker = context.coordinator.toolPicker {
             if isToolPickerMinimized {
                 if picker.isVisible {
                     picker.setVisible(false, forFirstResponder: uiView)
+                    uiView.resignFirstResponder()
                 }
             } else {
                 if !picker.isVisible {
@@ -300,28 +295,21 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
         }
     }
 
-    private func createDotGridPatternImage(width: CGFloat, height: CGFloat, gridSize: CGFloat = 24, dotRadius: CGFloat = 1.8) -> UIImage {
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: width, height: height))
+    // Lightweight 24x24 tile pattern generator (<1ms execution)
+    private func createDotPatternTileImage(gridSize: CGFloat = 24, dotRadius: CGFloat = 1.8) -> UIImage {
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: gridSize, height: gridSize))
         return renderer.image { ctx in
-            UIColor.systemBackground.setFill()
-            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+            UIColor.systemGroupedBackground.setFill()
+            ctx.fill(CGRect(x: 0, y: 0, width: gridSize, height: gridSize))
 
             UIColor.systemGray3.setFill()
-            var x: CGFloat = gridSize / 2
-            while x < width {
-                var y: CGFloat = gridSize / 2
-                while y < height {
-                    let dotRect = CGRect(
-                        x: x - dotRadius,
-                        y: y - dotRadius,
-                        width: dotRadius * 2,
-                        height: dotRadius * 2
-                    )
-                    ctx.cgContext.addEllipse(in: dotRect)
-                    y += gridSize
-                }
-                x += gridSize
-            }
+            let dotRect = CGRect(
+                x: (gridSize / 2) - dotRadius,
+                y: (gridSize / 2) - dotRadius,
+                width: dotRadius * 2,
+                height: dotRadius * 2
+            )
+            ctx.cgContext.addEllipse(in: dotRect)
             ctx.cgContext.fillPath()
         }
     }
@@ -434,7 +422,7 @@ struct CanvasContainerRepresentable: UIViewRepresentable {
                 canvasView.delegate = self
                 picker.addObserver(canvasView)
                 picker.addObserver(self)
-                
+
                 if !parent.isToolPickerMinimized {
                     picker.setVisible(true, forFirstResponder: canvasView)
                     canvasView.becomeFirstResponder()
