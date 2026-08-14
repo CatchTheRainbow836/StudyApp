@@ -4,14 +4,34 @@ import UIKit
 struct ZoomableImageView: View {
     let imagePath: String?
     var maxHeight: CGFloat = 160
+    var onScratchpadTap: (() -> Void)? = nil
 
     var body: some View {
         Group {
             if let path = imagePath, let uiImage = UIImage(contentsOfFile: path) {
-                ZoomableScrollView(image: uiImage, maxHeight: maxHeight)
-                    .frame(height: maxHeight)
-                    .background(Color(.secondarySystemBackground))
-                    .cornerRadius(8)
+                ZStack(alignment: .topTrailing) {
+                    ZoomableScrollView(image: uiImage, maxHeight: maxHeight)
+                        .frame(height: maxHeight)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(8)
+
+                    if let onTap = onScratchpadTap {
+                        Button(action: onTap) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "pencil.and.outline")
+                                Text("Write")
+                                    .font(.caption2.bold())
+                            }
+                            .foregroundColor(.primary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.thinMaterial)
+                            .cornerRadius(12)
+                            .shadow(radius: 2)
+                        }
+                        .padding(6)
+                    }
+                }
             } else {
                 Text("Image Unavailable")
                     .font(.caption)

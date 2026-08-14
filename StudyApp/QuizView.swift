@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum FramePresetSize {
-    case small       // ~55pt for standard 1-line answer images
-    case medium      // ~160pt for standard images or sub-questions
-    case large       // ~320pt for primary question images
-    case extraLarge  // ~420pt for primary context images
+    case small
+    case medium
+    case large
+    case extraLarge
 
     var height: CGFloat {
         switch self {
@@ -35,6 +35,8 @@ struct QuizView: View {
     @State private var overlaySymbol: String? = nil
     @State private var overlayColor: Color = .green
 
+    @State private var activeCanvasData: CanvasData? = nil
+
     var body: some View {
         ZStack {
             Color(.systemGroupedBackground).ignoresSafeArea()
@@ -58,6 +60,21 @@ struct QuizView: View {
 
                     Spacer()
 
+                    if let q = currentQuestion {
+                        Button(action: { openCanvas(for: q) }) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "pencil.and.outline")
+                                Text("Scratchpad")
+                            }
+                            .font(.subheadline.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(Color.blue.opacity(0.15))
+                            .cornerRadius(8)
+                        }
+                        .padding(.trailing, 8)
+                    }
+
                     if isAutoMode {
                         Text("Progress: \(autoCorrectCount) / \(qManager.settings.autoTargetCount)")
                             .font(.headline)
@@ -80,24 +97,36 @@ struct QuizView: View {
                         VStack(alignment: .leading, spacing: 16) {
                             
                             if let filteredText = cleanContextText(q.contextText), !filteredText.isEmpty {
-                                Text(filteredText)
-                                    .font(.subheadline)
+                                Button(action: { openCanvas(for: q) }) {
+                                    HStack {
+                                        Text(filteredText)
+                                            .font(.subheadline)
+                                            .foregroundColor(.primary)
+                                            .multilineTextAlignment(.leading)
+                                        Spacer()
+                                        Image(systemName: "pencil.and.outline")
+                                            .foregroundColor(.orange)
+                                    }
                                     .padding()
                                     .background(Color.orange.opacity(0.1))
                                     .cornerRadius(8)
+                                }
+                                .buttonStyle(PlainButtonStyle())
                             }
 
                             if let ctxImg = q.contextImage {
                                 ZoomableImageView(
                                     imagePath: qManager.imagePath(for: ctxImg, folderName: q.setFolderName),
-                                    maxHeight: FramePresetSize.extraLarge.height
+                                    maxHeight: FramePresetSize.extraLarge.height,
+                                    onScratchpadTap: { openCanvas(for: q) }
                                 )
                             }
 
                             ForEach(q.questionImages, id: \.self) { imgName in
                                 ZoomableImageView(
                                     imagePath: qManager.imagePath(for: imgName, folderName: q.setFolderName),
-                                    maxHeight: (q.contextImage != nil || q.contextText != nil) ? FramePresetSize.medium.height : FramePresetSize.large.height
+                                    maxHeight: (q.contextImage != nil || q.contextText != nil) ? FramePresetSize.medium.height : FramePresetSize.large.height,
+                                    onScratchpadTap: { openCanvas(for: q) }
                                 )
                             }
 
@@ -178,6 +207,31 @@ struct QuizView: View {
             }
         }
         .onAppear { loadNextQuestion() }
+        .fullScreenCover(item: $activeCanvasData) { data in
+            CanvasView(data: data)
+        }
+    }
+
+    private func openCanvas(for q: Question) {
+        var qImagePaths: [String] = []
+        for imgName in q.questionImages {
+            if let path = qManager.imagePath(for: imgName, folderName: q.setFolderName) {
+                qImagePaths.append(path)
+            }
+        }
+
+        var ctxImgPath: String? = nil
+        if let ctxImg = q.contextImage {
+            ctxImgPath = qManager.imagePath(for: ctxImg, folderName: q.setFolderName)
+        }
+
+        let canvasData = CanvasData(
+            title: "Question \(q.number) Scratchpad",
+            contextText: cleanContextText(q.contextText),
+            contextImagePath: ctxImgPath,
+            questionImagePaths: qImagePaths
+        )
+        self.activeCanvasData = canvasData
     }
 
     private func cleanContextText(_ rawText: String?) -> String? {
